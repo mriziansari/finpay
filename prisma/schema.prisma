@@ -1,0 +1,253 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum MerchantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum UserRole {
+  MERCHANT_ADMIN
+  OPS_ADMIN
+}
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentAttemptStatus {
+  INITIATED
+  SUCCESS
+  FAILURE
+}
+
+model Merchant {
+  id        String         @id @default(uuid())
+  name      String
+  status    MerchantStatus @default(ACTIVE)
+  users     User[]
+  customers Customer[]
+  payments  Payment[]
+  payouts   Payout[]
+  refunds   Refund[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("merchants")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  merchantId   String?
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         UserRole
+  merchant     Merchant? @relation(fields: [merchantId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([merchantId])
+  @@map("users")
+}
+
+model Customer {
+  id         String   @id @default(uuid())
+  merchantId String
+  name       String
+  email      String
+  phone      String?
+  status     CustomerStatus @default(ACTIVE)
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  payments   Payment[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@unique([merchantId, email]) // Unique per merchant
+  @@index([merchantId])
+  @@map("customers")
+}
+
+enum PaymentStatus {
+  CREATED
+  RISK_CHECKING
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+  FAILED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum RiskDecision {
+  APPROVED
+  REJECTED
+}
+
+model Payment {
+  id                 String        @id @default(uuid())
+  merchantId         String
+  customerId         String
+  amount             Decimal       @db.Decimal(12, 2)
+  currency           String        @default("USD")
+  status             PaymentStatus @default(CREATED)
+  
+  riskScore          Int?
+  riskDecision       RiskDecision?
+  
+  processorReference String?
+  failureReason      String?
+  
+  idempotencyKey     String?
+
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  merchant           Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customer           Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  attempts           PaymentAttempt[]
+  refunds            Refund[]
+
+  @@unique([merchantId, idempotencyKey])
+  @@index([merchantId])
+  @@index([customerId])
+  @@map("payments")
+}
+
+model PaymentAttempt {
+  id                 String               @id @default(uuid())
+  paymentId          String
+  attemptNumber      Int
+  status             PaymentAttemptStatus @default(INITIATED)
+  processorReference String?
+  failureReason      String?
+  isRetryable        Boolean              @default(false)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  payment            Payment              @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  @@unique([paymentId, attemptNumber])
+  @@index([paymentId])
+  @@map("payment_attempts")
+}
+
+// --- Ledger Definitions Start ---
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+enum LedgerEntryDirection {
+  DEBIT
+  CREDIT
+}
+
+model LedgerAccount {
+  id         String            @id @default(uuid())
+  merchantId String?           // Null for platform-wide accounts (e.g. platform fees, gateway receivable)
+  name       String            // e.g., "MERCHANT_SETTLEMENT", "PLATFORM_REVENUE", "GATEWAY_RECEIVABLE"
+  type       LedgerAccountType
+  currency   String            @default("USD")
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  entries    LedgerEntry[]
+  @@unique([merchantId, name, currency])
+  @@index([merchantId])
+  @@map("ledger_accounts")
+}
+model LedgerTransaction {
+  id            String        @id @default(uuid())
+  merchantId    String?       // Scoped to merchant if merchant-specific
+  referenceType String        // "PAYMENT", "REFUND", "PAYOUT"
+  referenceId   String        // e.g. payment.id
+  description   String?
+  createdAt     DateTime      @default(now())
+  entries       LedgerEntry[]
+  // Critical: prevents double-posting the same payment to the ledger!
+  @@unique([referenceType, referenceId])
+  @@index([referenceType, referenceId])
+  @@map("ledger_transactions")
+}
+model LedgerEntry {
+  id            String               @id @default(uuid())
+  transactionId String
+  accountId     String
+  direction     LedgerEntryDirection // DEBIT or CREDIT
+  amount        Decimal              @db.Decimal(12, 2)
+  createdAt     DateTime             @default(now())
+  transaction   LedgerTransaction    @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  account       LedgerAccount        @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  @@index([transactionId])
+  @@index([accountId])
+  @@map("ledger_entries")
+}
+ // --- Ledger Definitions End ---
+
+ // --- Payouts Definitions Start ---
+
+ enum PayoutStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model Payout {
+  id             String       @id @default(uuid())
+  merchantId     String
+  amount         Decimal      @db.Decimal(12, 2)
+  currency       String       @default("USD")
+  status         PayoutStatus @default(PENDING)
+  idempotencyKey String?
+  failureReason  String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  merchant       Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, idempotencyKey])
+  @@index([merchantId])
+  @@map("payouts")
+}
+
+
+// --- Payouts Definitions End ---
+
+// --- Refund Definitions Start ---
+
+enum RefundStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model Refund {
+  id             String       @id @default(uuid())
+  paymentId      String
+  merchantId     String
+  amount         Decimal      @db.Decimal(12, 2)
+  currency       String       @default("USD")
+  reason         String?
+  status         RefundStatus @default(PENDING)
+  idempotencyKey String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  payment        Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  merchant       Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, idempotencyKey])
+  @@index([paymentId])
+  @@index([merchantId])
+  @@map("refunds")
+}
+
+// --- Refund Definitions End ---
+
