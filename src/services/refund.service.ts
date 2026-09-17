@@ -6,8 +6,8 @@ import { recordRefundSettlement } from "./ledger.service.js";
 export interface CreateRefundInput {
   paymentId: string;
   merchantId: string;
-  amount?: number | undefined; // Optional: If omitted, full refund is assumed
-  reason?: string | undefined;
+  amount?: number; // Optional: If omitted, full refund is assumed
+  reason?: string;
   idempotencyKey: string;
 }
 
