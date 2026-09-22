@@ -1,4 +1,4 @@
-import { prisma } from "../lib/prisma";
+import { prisma } from "../../shared/database/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { LedgerAccountType, LedgerEntryDirection, type Prisma } from "@prisma/client";
 

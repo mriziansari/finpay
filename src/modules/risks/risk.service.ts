@@ -1,4 +1,4 @@
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../../shared/database/prisma.js";
 import  { PaymentStatus, RiskDecision } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 

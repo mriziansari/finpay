@@ -1,7 +1,10 @@
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../../shared/database/prisma.js";
 import { PaymentStatus, RefundStatus, type Refund } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { recordRefundSettlement } from "./ledger.service.js";
+// import { recordRefundSettlement } from "../ledgers/index.js";
+import { getPaymentById, updatePaymentStatus } from "../payments/index.js";
+import { insertOutboxEvent } from "../../shared/events/index.js";
+
 
 export interface CreateRefundInput {
   paymentId: string;
@@ -37,17 +40,7 @@ export async function createRefund(input: CreateRefundInput): Promise<CreateRefu
   }
 
   // 2. Fetch payment and existing completed refunds
-  const payment = await prisma.payment.findFirst({
-    where: {
-      id: paymentId,
-      merchantId,
-    },
-    include: {
-      refunds: {
-        where: { status: RefundStatus.COMPLETED },
-      },
-    },
-  });
+  const payment = await getPaymentById(merchantId, paymentId);
 
   if (!payment) {
     const error = new Error("Payment not found");
@@ -112,22 +105,23 @@ export async function createRefund(input: CreateRefundInput): Promise<CreateRefu
       ? PaymentStatus.REFUNDED
       : PaymentStatus.PARTIALLY_REFUNDED;
 
-    await tx.payment.update({
-      where: { id: payment.id },
-      data: { status: newStatus },
-    });
+    await updatePaymentStatus(payment.id, newStatus, tx);
 
     // 4.3 Post double-entry reversal to Ledger
-    await recordRefundSettlement(
-      {
+        // 4.3 Write domain event to the Transactional Outbox
+    await insertOutboxEvent(tx, {
+      eventType: "refund.completed",
+      aggregateType: "Refund",
+      aggregateId: refund.id,
+      payload: {
         refundId: refund.id,
         paymentId: payment.id,
         merchantId,
-        amount: refundAmount,
+        amount: refundAmount.toFixed(2),
         currency: payment.currency,
       },
-      tx
-    );
+    });
+
 
     return {
       refund,

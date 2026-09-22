@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from "fastify";
 import { UserRole } from "@prisma/client";
-import { authenticate, requireRole, requireMerchantContext } from "../middlewares/auth.middleware.js";
-import { createPayout } from "../services/payout.service.js";
-import { prisma } from "../lib/prisma.js";
+import { authenticate, requireRole, requireMerchantContext } from "../../shared/middlewares/auth.middleware.js";
+import { createPayout } from "./payout.service.js";
+import { prisma } from "../../shared/database/prisma.js";
 
 interface CreatePayoutBody {
   amount: number;

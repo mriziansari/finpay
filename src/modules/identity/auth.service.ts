@@ -1,7 +1,7 @@
-import { prisma } from "../lib/prisma.js";
-import { hashPassword } from "../utils/hash.js";
+import { prisma } from "../../shared/database/prisma.js";
+import { hashPassword } from "../../shared/utils/hash.js";
 import { UserRole } from "@prisma/client";
-import { comparePassword } from "../utils/hash.js";
+import { comparePassword } from "../../shared/utils/hash.js";
 
 export interface RegisterMerchantInput {
     merchantName:string;

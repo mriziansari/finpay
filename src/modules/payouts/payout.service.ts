@@ -1,7 +1,7 @@
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../../shared/database/prisma.js";
 import { PayoutStatus, type Payout } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { getMerchantBalance, recordPayoutSettlement } from "./ledger.service.js";
+import { getMerchantBalance, recordPayoutSettlement } from "../ledgers/index.js";
 
 export interface CreatePayoutInput {
   merchantId: string;

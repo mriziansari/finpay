@@ -1,9 +1,9 @@
-import { createPayment } from "../services/payment.service.js";
+import { createPayment } from "./payment.service.js";
 import type { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from "fastify";
 import { UserRole } from "@prisma/client";
-import { requireRole, authenticate, requireMerchantContext } from "../middlewares/auth.middleware.js";
-import { prisma } from "../lib/prisma.js";
-import { createRefund } from "../services/refund.service.js";
+import { requireRole, authenticate, requireMerchantContext } from "../../shared/middlewares/auth.middleware.js";
+import { prisma } from "../../shared/database/prisma.js";
+import { createRefund } from "../refund/index.js";
 
 
 // Request Body 

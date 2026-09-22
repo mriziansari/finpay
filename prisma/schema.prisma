@@ -36,6 +36,7 @@ model Merchant {
   payments  Payment[]
   payouts   Payout[]
   refunds   Refund[]
+  webhookEndpoints WebhookEndpoint[]
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
@@ -251,3 +252,71 @@ model Refund {
 
 // --- Refund Definitions End ---
 
+// --- Transactional Outbox Definitions Start ---
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+}
+model OutboxEvent {
+  id            String       @id @default(uuid())
+  aggregateType String       // e.g. "Payment", "Payout", "Refund"
+  aggregateId   String       // e.g. payment.id
+  eventType     String       // e.g. "payment.completed", "payment.failed"
+  payload       Json        
+  status        OutboxStatus @default(PENDING)
+  retryCount    Int          @default(0)
+  errorMessage  String?
+  createdAt     DateTime     @default(now())
+  processedAt   DateTime?
+  // Index for fast polling queries: finding oldest PENDING events
+  @@index([status, createdAt])
+  @@map("outbox_events")
+}
+// --- Transactional Outbox Definitions End ---
+
+// --- Webhook Definitions Start ---
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILURE
+}
+
+model WebhookEndpoint {
+  id         String   @id @default(uuid())
+  merchantId String
+  url        String
+  secret     String   // Used to sign webhooks 
+  isActive   Boolean  @default(true)
+  events     String[] // e.g. ["payment.completed", "refund.completed"]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([merchantId])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id           String                @id @default(uuid())
+  endpointId   String
+  eventType    String
+  payload      Json
+  statusCode   Int?
+  status       WebhookDeliveryStatus @default(PENDING)
+  attempts     Int                   @default(0)
+  responseBody String?
+  createdAt    DateTime              @default(now())
+
+  endpoint     WebhookEndpoint       @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId])
+  @@index([status])
+  @@map("webhook_deliveries")
+}
+
+// --- Webhook Definitions End ---

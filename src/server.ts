@@ -1,5 +1,10 @@
 import { buildApp } from "./app.js";
 import "dotenv/config";
+import { initLedgerSubscribers } from "./modules/ledgers/index.js";
+import { startOutboxDispatcher } from "./shared/events/index.js";
+import { initWebhookSubscribers } from "./modules/webhooks/index.js";
+
+
 
 const app = buildApp();
 
@@ -8,6 +13,12 @@ const HOST = process.env.HOST || "0.0.0.0";
 
 const start = async () => {
     try {
+        // Register module event subscribers
+        initLedgerSubscribers();
+        initWebhookSubscribers();
+
+        // Start background outbox polling worker
+        startOutboxDispatcher();
         await app.listen({
             port: PORT,
             host:HOST

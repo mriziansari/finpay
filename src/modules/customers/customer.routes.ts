@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from "fastify";
-import { authenticate, requireRole, requireMerchantContext } from "../middlewares/auth.middleware.js";
-import { createCustomer, listCustomers, getCustomerById, updateCustomer, deleteCustomer } from "../services/customer.service.js";
+import { authenticate, requireRole, requireMerchantContext } from "../../shared/middlewares/auth.middleware.js";
+import { createCustomer, listCustomers, getCustomerById, updateCustomer, deleteCustomer } from "./customer.service.js";
 import { UserRole, CustomerStatus } from "@prisma/client";
 
 interface CreateCustomerBody {

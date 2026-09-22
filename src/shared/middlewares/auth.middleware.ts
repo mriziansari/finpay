@@ -1,8 +1,7 @@
 
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../database/prisma.js";
 import { UserRole } from "@prisma/client";
-import { error } from "console";
 
 
 // 1. Authentication: verifies JWT

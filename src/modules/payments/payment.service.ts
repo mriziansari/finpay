@@ -1,9 +1,11 @@
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../../shared/database/prisma.js";
 import { PaymentStatus, type Payment, CustomerStatus, RiskDecision, PaymentAttemptStatus, Prisma} from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { evaluatePaymentRisk } from "./risk.service";
+import { evaluatePaymentRisk } from "../risks/index.js";
 import { processPaymentGatewayCharge, type MockProcessorScenario } from "./payment_processor.service";
-import { recordPaymentSettlement } from "./ledger.service.js";
+//import { recordPaymentSettlement } from "../ledgers/index.js";
+import { validateCustomerForPayment } from "../customers/index.js";
+import { insertOutboxEvent } from "../../shared/events/index.js";
  
 //  Defined the allowd currencies
 
@@ -40,24 +42,7 @@ export async function createPayment(input: CreatePaymentInput): Promise<CreatePa
     }
 
     // 2 - Customer exist, belong to merchant, status active
-    const customer = await prisma.customer.findFirst({
-        where:{
-            id:customerId,
-            merchantId:merchantId
-            
-        }
-    });
-
-    if (!customer) {
-        const error = new Error("Customer not found");
-        (error as any).status = 404;
-        throw error;
-    }
-    if (customer.status === CustomerStatus.INACTIVE) {
-        const error = new Error("Customer is inactive");
-        (error as any).status = 400;
-        throw error;
-    }
+   const customer = await validateCustomerForPayment(merchantId, customerId);
     
     // 3 - check idempotency key
 
@@ -197,43 +182,79 @@ export async function createPayment(input: CreatePaymentInput): Promise<CreatePa
         }
     }
 
-    // 10. Complete or Fail the payment
-    // Ensure we have a processor result; if not, treat as failure
+    // 10. Complete or Fail the payment & save the event in automic transation 
+    
     if (!chargeResult) {
       const error = new Error('Processor did not return a result');
       (error as any).status = 500;
       throw error;
     }
-    const finalPayment = await prisma.payment.update({
-        where: { id: payment.id },
-        data: chargeResult.success
-            ? {
-                  status: PaymentStatus.COMPLETED,
-                  processorReference: chargeResult.processorReference
-              }
-            : {
-                  status: PaymentStatus.FAILED,
-                  failureReason: chargeResult.failureReason || "Transaction declined by processor",
-              },
-        include: {
-            attempts: true
-        }
-    });
-
-    // 11. Record settlement ledger transaction (for successful payments)
-    if (chargeResult.success) {
-        await recordPaymentSettlement({
-            paymentId: finalPayment.id,
-            merchantId: finalPayment.merchantId,
-            amount: finalPayment.amount,
-            currency: finalPayment.currency,
+    const finalPayment = await prisma.$transaction(async (tx) => {
+        // 10.1 Update payment status in database
+        const updatedPayment = await tx.payment.update({
+            where: { id: payment.id },
+            data: chargeResult.success
+                ? {
+                      status: PaymentStatus.COMPLETED,
+                      processorReference: chargeResult.processorReference,
+                  }
+                : {
+                      status: PaymentStatus.FAILED,
+                      failureReason: chargeResult.failureReason || "Transaction declined by processor",
+                  },
+            include: {
+                attempts: true,
+            },
         });
-    }
-    
+
+        // 10.2 Write the domain event to the Transactional Outbox
+        if (chargeResult.success) {
+            await insertOutboxEvent(tx, {
+                eventType: "payment.completed",
+                aggregateType: "Payment",
+                aggregateId: updatedPayment.id,
+                payload: {
+                    paymentId: updatedPayment.id,
+                    merchantId: updatedPayment.merchantId,
+                    amount: updatedPayment.amount.toFixed(2),
+                    currency: updatedPayment.currency,
+                },
+            });
+        } else {
+            await insertOutboxEvent(tx, {
+                eventType: "payment.failed",
+                aggregateType: "Payment",
+                aggregateId: updatedPayment.id,
+                payload: {
+                    paymentId: updatedPayment.id,
+                    merchantId: updatedPayment.merchantId,
+                    amount: updatedPayment.amount.toFixed(2),
+                    currency: updatedPayment.currency,
+                    failureReason: updatedPayment.failureReason || "Transaction declined",
+                },
+            });
+        }
+        return updatedPayment;
+    });
     return {
         payment: finalPayment,
-        isIdempotentReply: false
-    }
-    
+        isIdempotentReply: false,
+    };
 }
 
+// Public helper for other modules to fetch payment info
+export async function getPaymentById(merchantId: string, paymentId: string) {
+    return prisma.payment.findFirst({
+        where: { id: paymentId, merchantId },
+        include: { refunds: { where: { status: "COMPLETED" } } }
+    });
+}
+
+// Public helper for other modules to update payment status within a transaction
+export async function updatePaymentStatus(paymentId: string, status: PaymentStatus, tx?: Prisma.TransactionClient) {
+    const client = tx || prisma;
+    return client.payment.update({
+        where: { id: paymentId },
+        data: { status }
+    });
+}

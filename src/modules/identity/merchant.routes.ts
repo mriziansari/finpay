@@ -1,9 +1,7 @@
 import type { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from "fastify";
-import { authenticate, requireMerchantContext, requireRole } from "../middlewares/auth.middleware.js";
+import { authenticate, requireMerchantContext, requireRole } from "../../shared/middlewares/auth.middleware.js";
 import { UserRole } from "@prisma/client";
-import { prisma } from "../lib/prisma.js";
-
-
+import { prisma } from "../../shared/database/prisma.js";
 
 // Routes for Merchant Management (Admin Portal)
 export async function merchantRoutes(app: FastifyInstance, options: FastifyPluginOptions) {

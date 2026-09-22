@@ -1,12 +1,15 @@
 import Fastify from "fastify"
-import {prisma} from "./lib/prisma.js";
-import { authRoutes } from "./routes/auth.routes.js";
-import { merchantRoutes } from "./routes/merchant.routes.js";
 import { fastifyJwt } from "@fastify/jwt";
-import {customerRoutes} from "./routes/customer.routes.js";
-import { paymentRoutes } from "./routes/payment.routes.js";
-import { ledgerRoutes } from "./routes/ledger.routes.js";
-import { payoutRoutes } from "./routes/payout.routes.js";
+import { prisma } from "./shared/database/prisma.js";
+
+
+import { authRoutes, merchantRoutes } from "./modules/identity/index.js";
+import { customerRoutes } from "./modules/customers/index.js";
+import { paymentRoutes } from "./modules/payments/index.js";
+import { ledgerRoutes } from "./modules/ledgers/index.js";
+import { payoutRoutes } from "./modules/payouts/index.js"
+import { webhookRoutes } from "./modules/webhooks/index.js";
+
 
 
 export function buildApp(){
@@ -30,20 +33,19 @@ export function buildApp(){
          };
     } );
 
-    app.register(authRoutes, {prefix: "/api/v1"});
+    
 
     app.register(fastifyJwt, {
         secret:process.env.JWT_SECRET || "default_fallback_secret_for_dev_only"
     });
+    app.register(authRoutes, {prefix: "/api/v1"});
     app.register(merchantRoutes, {prefix: "/api/v1"});
-    
     app.register(customerRoutes, {prefix: "/api/v1"});
-
     app.register(paymentRoutes, {prefix: "/api/v1"});
-    
     app.register(ledgerRoutes, { prefix: "/api/v1" });
-
     app.register(payoutRoutes, { prefix: "/api/v1" });
+    app.register(webhookRoutes, { prefix: "/api/v1" });
+
 
     return app
 }

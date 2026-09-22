@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from "fastify";
-import {loginUser, registerMerchant, type LoginInput, type RegisterMerchantInput} from "../services/auth.service.js";
-import { authenticate } from "../middlewares/auth.middleware.js";
-import { prisma } from "../lib/prisma.js";
+import {loginUser, registerMerchant, type LoginInput, type RegisterMerchantInput} from "./auth.service.js";
+import { authenticate } from "../../shared/middlewares/auth.middleware.js";
+import { prisma } from "../../shared/database/prisma.js";
 
 
 

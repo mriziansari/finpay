@@ -1,4 +1,4 @@
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../../shared/database/prisma.js";
 import  { CustomerStatus } from "@prisma/client";
 
 
@@ -113,4 +113,28 @@ export async function deleteCustomer(merchantId: string, customerId: string) {
     return prisma.customer.delete({
         where: { id: customerId }
     });
+}
+
+/**
+ * Validates that a customer exists, belongs to the merchant, and is ACTIVE.
+ * Used by the Payments module to verify customer eligibility.
+ */
+export async function validateCustomerForPayment(merchantId: string, customerId: string) {
+    const customer = await prisma.customer.findFirst({
+        where: {
+            id: customerId,
+            merchantId,
+        },
+    });
+    if (!customer) {
+        const error = new Error("Customer not found");
+        (error as any).status = 404;
+        throw error;
+    }
+    if (customer.status === CustomerStatus.INACTIVE) {
+        const error = new Error("Customer is inactive");
+        (error as any).status = 400;
+        throw error;
+    }
+    return customer;
 }
