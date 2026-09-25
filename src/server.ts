@@ -2,7 +2,7 @@ import { buildApp } from "./app.js";
 import "dotenv/config";
 import { initLedgerSubscribers } from "./modules/ledgers/index.js";
 import { startOutboxDispatcher } from "./shared/events/index.js";
-import { initWebhookSubscribers } from "./modules/webhooks/index.js";
+//import { initWebhookSubscribers } from "./modules/webhooks/index.js";
 
 
 
@@ -15,7 +15,7 @@ const start = async () => {
     try {
         // Register module event subscribers
         initLedgerSubscribers();
-        initWebhookSubscribers();
+       // initWebhookSubscribers();
 
         // Start background outbox polling worker
         startOutboxDispatcher();

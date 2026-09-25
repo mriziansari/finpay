@@ -2,6 +2,7 @@ import { prisma } from "../database/prisma.js";
 import { OutboxStatus } from "@prisma/client";
 import { eventBus } from "./event-bus.js";
 import type { DomainEvent } from "./event.types.js";
+import { publicEventsToStream } from "../redis/stream.publisher.js";
 
 const BATCH_SIZE = 10;
 const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
@@ -41,6 +42,8 @@ export async function processOutboxBatch(): Promise<number> {
       };
 
       await eventBus.publish(domainEvent);
+      // Stream to Redis Streams for external microservices
+      await publicEventsToStream(domainEvent);
 
       // 4. Mark as PUBLISHED upon success
       await prisma.outboxEvent.update({
