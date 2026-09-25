@@ -43,7 +43,7 @@ export async function startWebhookWorker(): Promise<void>{
     // 2. Start continuous reading loop
     while(isRunning){
         try{
-            //Blocking read: wait up to 5 seconds for a new message.
+            //Blocking read: wait up to 2 seconds for a new message.
             const response = await redis.xreadgroup(
                 'GROUP', config.consumerGroup, config.consumerName,
                 'COUNT', 10,

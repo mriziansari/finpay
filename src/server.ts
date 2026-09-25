@@ -2,9 +2,6 @@ import { buildApp } from "./app.js";
 import "dotenv/config";
 import { initLedgerSubscribers } from "./modules/ledgers/index.js";
 import { startOutboxDispatcher } from "./shared/events/index.js";
-//import { initWebhookSubscribers } from "./modules/webhooks/index.js";
-
-
 
 const app = buildApp();
 

@@ -33,8 +33,8 @@ export async function deliverToEndpoint(param: {
         const timeoutId = setTimeout(() => abortController.abort(), 10000); //10 sec timeout
 
         const response = await fetch(endpoint.url, {
-            method: "POST",
-            headers: {
+             method: "POST",
+           headers: {
                 "Content-Type": "application/json",
                 "X-FinPay-Signature": signature,
                 "X-FinPay-Event": eventType,

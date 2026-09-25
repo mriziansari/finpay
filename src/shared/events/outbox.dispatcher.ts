@@ -12,6 +12,12 @@ let intervalTimer: NodeJS.Timeout | null = null;
 
 /**
  * Process a single batch of PENDING outbox events.
+ * 1- findMany from outboxEvent db model where status is PENDING
+ * 2- Took the events and change the status of every event to PROCESSING
+ * 3- Construct domain even and publish to event bus 
+ * 4- Publish to redis stream
+ * 5- on success update status to PUBLISHED and processedAt
+ * 6- on failure update status to FAILED and increment retryCount
  */
 export async function processOutboxBatch(): Promise<number> {
   // 1. Fetch pending events ordered by creation date

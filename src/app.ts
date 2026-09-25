@@ -8,9 +8,7 @@ import { customerRoutes } from "./modules/customers/index.js";
 import { paymentRoutes } from "./modules/payments/index.js";
 import { ledgerRoutes } from "./modules/ledgers/index.js";
 import { payoutRoutes } from "./modules/payouts/index.js"
-import { webhookRoutes } from "./modules/webhooks/index.js";
-
-
+import proxy from "@fastify/http-proxy";
 
 export function buildApp(){
 
@@ -44,8 +42,13 @@ export function buildApp(){
     app.register(paymentRoutes, {prefix: "/api/v1"});
     app.register(ledgerRoutes, { prefix: "/api/v1" });
     app.register(payoutRoutes, { prefix: "/api/v1" });
-    app.register(webhookRoutes, { prefix: "/api/v1" });
-
+    
+// STRANGLER PROXY: Transparently forward all /api/v1/webhooks calls to Webhook Service (Port 3001)
+    app.register(proxy, {
+        upstream: process.env.WEBHOOKS_SERVICE_URL || "http://localhost:3001",
+        prefix: "/api/v1/webhooks",
+        rewritePrefix: "/api/v1/webhooks"
+    });
 
     return app
 }

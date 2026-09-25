@@ -1,8 +1,19 @@
 import Fastify from "fastify";
+import { fastifyJwt } from "@fastify/jwt";
 import { config } from "./config.js";
+import { webhookRoutes } from "./webhook.routes.js";
 import { startWebhookWorker, stopWebhookWorker } from "./webhook.worker.js";
 
 const app = Fastify({ logger: true });
+
+// Register JWT for authenticating incoming requests
+app.register(fastifyJwt, {
+  secret: process.env.JWT_SECRET || "default_fallback_secret_for_dev_only",
+});
+
+// Register Webhook CRUD API routes
+app.register(webhookRoutes);
+
 
 // Health check endpoint
 app.get("/health", async () => {
