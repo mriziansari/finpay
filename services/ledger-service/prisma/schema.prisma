@@ -1,0 +1,66 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("LEDGER_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../node_modules/@prisma/ledger-client"
+}
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum LedgerEntryDirection {
+  DEBIT
+  CREDIT
+}
+
+model LedgerAccount {
+  id         String            @id @default(uuid())
+  merchantId String?           // Scoped to merchant or null for platform accounts
+  name       String            // e.g. "MERCHANT_SETTLEMENT", "PLATFORM_REVENUE", "GATEWAY_RECEIVABLE"
+  type       LedgerAccountType
+  currency   String            @default("USD")
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  entries    LedgerEntry[]
+
+  @@unique([merchantId, name, currency])
+  @@index([merchantId])
+  @@map("ledger_accounts")
+}
+
+model LedgerTransaction {
+  id            String        @id @default(uuid())
+  merchantId    String?
+  referenceType String        // "PAYMENT", "REFUND", "PAYOUT"
+  referenceId   String        // UUID of the business entity (e.g. paymentId)
+  description   String?
+  createdAt     DateTime      @default(now())
+  entries       LedgerEntry[]
+
+  @@unique([referenceType, referenceId])
+  @@index([referenceType, referenceId])
+  @@map("ledger_transactions")
+}
+
+model LedgerEntry {
+  id            String               @id @default(uuid())
+  transactionId String
+  accountId     String
+  direction     LedgerEntryDirection // DEBIT or CREDIT
+  amount        Decimal              @db.Decimal(12, 2)
+  createdAt     DateTime             @default(now())
+  transaction   LedgerTransaction    @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  account       LedgerAccount        @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([transactionId])
+  @@index([accountId])
+  @@map("ledger_entries")
+}

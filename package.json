@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "dev:webhook": "WEBHOOK_PORT=3001 tsx watch services/webhook-service/src/server.ts",
+    "dev:ledger": "LEDGER_PORT=3002 tsx watch services/ledger-service/src/server.ts",
+
     "build": "tsc",
     "start": "node dist/server.js",
     "postinstall": "prisma skills sync || exit 0",

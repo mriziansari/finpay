@@ -6,7 +6,7 @@ import { prisma } from "./shared/database/prisma.js";
 import { authRoutes, merchantRoutes } from "./modules/identity/index.js";
 import { customerRoutes } from "./modules/customers/index.js";
 import { paymentRoutes } from "./modules/payments/index.js";
-import { ledgerRoutes } from "./modules/ledgers/index.js";
+//import { ledgerRoutes } from "./modules/ledgers/index.js";
 import { payoutRoutes } from "./modules/payouts/index.js"
 import proxy from "@fastify/http-proxy";
 
@@ -40,7 +40,7 @@ export function buildApp(){
     app.register(merchantRoutes, {prefix: "/api/v1"});
     app.register(customerRoutes, {prefix: "/api/v1"});
     app.register(paymentRoutes, {prefix: "/api/v1"});
-    app.register(ledgerRoutes, { prefix: "/api/v1" });
+    //app.register(ledgerRoutes, { prefix: "/api/v1" });
     app.register(payoutRoutes, { prefix: "/api/v1" });
     
 // STRANGLER PROXY: Transparently forward all /api/v1/webhooks calls to Webhook Service (Port 3001)
@@ -48,6 +48,13 @@ export function buildApp(){
         upstream: process.env.WEBHOOKS_SERVICE_URL || "http://localhost:3001",
         prefix: "/api/v1/webhooks",
         rewritePrefix: "/api/v1/webhooks"
+    });
+
+    // STRANGLER PROXY: Forward ledger requests to Ledger Microservice (Port 3002)
+    app.register(proxy, {
+      upstream: process.env.LEDGER_SERVICE_URL || "http://localhost:3002",
+      prefix: "/api/v1/ledger",
+      rewritePrefix: "/internal",
     });
 
     return app
